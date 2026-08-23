@@ -38,4 +38,4 @@ index.html 已包含全部程式邏輯，不需要外部 JS。桌面瀏覽器可
 - 本版不做 OCR，所以「自動檔名」以日期/時間產生，不會從文件文字判斷公司名或文件類別。
 
 
-v4.1 adds Ultra HD mode, fold/crease attenuation, glare/backlight suppression, stronger local illumination correction and text sharpening.
+v5.0 adds Document Reconstruction mode, fold/crease attenuation, glare/backlight suppression, stronger local illumination correction and text sharpening.

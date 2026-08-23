@@ -52,7 +52,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(255,255
 
 <section class="card" id="settingsCard" hidden>
   <div class="controls">
-    <div class="control"><label>處理模式</label><select id="mode"><option value="ultra" selected>超清掃描（推薦）</option><option value="hd">高清掃描</option><option value="color">增強彩色（印章／簽名）</option><option value="gray">高清灰階</option><option value="bw">黑白文件</option><option value="original">原色・只校正</option></select></div>
+    <div class="control"><label>處理模式</label><select id="mode"><option value="ultra" selected>文件重建（推薦）</option><option value="hd">高清掃描</option><option value="color">增強彩色（印章／簽名）</option><option value="gray">高清灰階</option><option value="bw">黑白文件</option><option value="original">原色・只校正</option></select></div>
     <div class="control"><label>高清增強強度 <span id="strengthValue">78</span>%</label><input id="strength" type="range" min="0" max="100" value="78"></div>
     <div class="control"><label>A4 輸出解像度</label><select id="resolution"><option value="150">150 dpi・1240×1754</option><option value="200">200 dpi・1654×2339</option><option value="300" selected>300 dpi・2480×3508</option></select></div>
   </div>
@@ -63,7 +63,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(255,255
     <label class="switch"><input id="crease" type="checkbox" checked> 褶皺 / 摺痕淡化</label>
     <label class="switch"><input id="glare" type="checkbox" checked> 反光 / 強逆光抑制</label>
   </div>
-  <div class="row" style="margin-top:10px"><button class="btn" id="processBtn">生成高清 A4</button><span id="processStatus" class="status">等待處理</span></div>
+  <div class="row" style="margin-top:10px"><button class="btn" id="processBtn">重建高清 A4</button><span id="processStatus" class="status">等待處理</span></div>
 </section>
 
 <section class="card" id="resultCard" hidden>
@@ -160,139 +160,97 @@ function clamp255(v){return v<0?0:v>255?255:v}
 function lerp(a,b,t){return a+(b-a)*t}
 function sampleBilinear(a,w,h,x,y){x=Math.max(0,Math.min(w-1,x));y=Math.max(0,Math.min(h-1,y));const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(w-1,x0+1),y1=Math.min(h-1,y0+1),tx=x-x0,ty=y-y0;return lerp(lerp(a[y0*w+x0],a[y0*w+x1],tx),lerp(a[y1*w+x0],a[y1*w+x1],tx),ty)}
 function percentile(a,p){const b=Array.from(a).sort((x,y)=>x-y);return b[Math.max(0,Math.min(b.length-1,Math.floor((b.length-1)*p)))]}
+function buildPaperField(sd,sw,sh){
+  // Robust block-wise high-percentile paper reconstruction. Printed strokes are rejected
+  // instead of being blurred into the background field.
+  const tile=16,gw=Math.ceil(sw/tile),gh=Math.ceil(sh/tile);
+  const fr=new Float32Array(gw*gh),fg=new Float32Array(gw*gh),fb=new Float32Array(gw*gh),fy=new Float32Array(gw*gh);
+  for(let gy=0;gy<gh;gy++)for(let gx=0;gx<gw;gx++){
+    const vals=[];
+    const x0=gx*tile,y0=gy*tile,x1=Math.min(sw,x0+tile),y1=Math.min(sh,y0+tile);
+    for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){
+      const i=(y*sw+x)*4,r=sd[i],g=sd[i+1],b=sd[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=(mx-mn)/Math.max(1,mx),yy=.299*r+.587*g+.114*b;
+      if(sat<.25 || yy>205) vals.push([yy,r,g,b]);
+    }
+    if(!vals.length){for(let y=y0;y<y1;y+=3)for(let x=x0;x<x1;x+=3){const i=(y*sw+x)*4,r=sd[i],g=sd[i+1],b=sd[i+2];vals.push([.299*r+.587*g+.114*b,r,g,b])}}
+    vals.sort((a,b)=>a[0]-b[0]);
+    const lo=Math.floor(vals.length*.72), hi=Math.max(lo+1,Math.floor(vals.length*.94));let sr=0,sg=0,sb=0,sy=0,n=0;
+    for(let k=lo;k<hi;k++){const v=vals[k];sy+=v[0];sr+=v[1];sg+=v[2];sb+=v[3];n++}
+    const j=gy*gw+gx;fy[j]=sy/Math.max(1,n);fr[j]=sr/Math.max(1,n);fg[j]=sg/Math.max(1,n);fb[j]=sb/Math.max(1,n);
+  }
+  function smooth(a){let q=a;for(let pass=0;pass<3;pass++){const o=new Float32Array(q.length);for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){let sum=0,wgt=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const xx=Math.max(0,Math.min(gw-1,x+dx)),yy=Math.max(0,Math.min(gh-1,y+dy)),w=(dx===0&&dy===0)?4:((dx===0||dy===0)?2:1);sum+=q[yy*gw+xx]*w;wgt+=w}o[y*gw+x]=sum/wgt}q=o}return q}
+  return{r:smooth(fr),g:smooth(fg),b:smooth(fb),y:smooth(fy),gw,gh,tile};
+}
+function sampleGrid(a,gw,gh,x,y){x=Math.max(0,Math.min(gw-1,x));y=Math.max(0,Math.min(gh-1,y));const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(gw-1,x0+1),y1=Math.min(gh-1,y0+1),tx=x-x0,ty=y-y0;return lerp(lerp(a[y0*gw+x0],a[y0*gw+x1],tx),lerp(a[y1*gw+x0],a[y1*gw+x1],tx),ty)}
 function enhanceCanvas(canvas,mode,strength,shadowOn,whiteOn,stampOn,creaseOn,glareOn){
   if(mode==='original')return;
   const ctx=canvas.getContext('2d',{willReadFrequently:true}),img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data;
   const W=canvas.width,H=canvas.height,s=Math.max(0,Math.min(1,strength/100));
 
-  // Build a small analysis image. This keeps the heavy illumination estimation fast on iPhone.
-  const sw=384,sh=Math.max(240,Math.round(sw*H/W)),sm=document.createElement('canvas');sm.width=sw;sm.height=sh;
-  const sc=sm.getContext('2d',{willReadFrequently:true});sc.drawImage(canvas,0,0,sw,sh);
-  const sd=sc.getImageData(0,0,sw,sh).data,lumSmall=new Float32Array(sw*sh),satSmall=new Float32Array(sw*sh);
-  let paper=[];
-  for(let i=0,j=0;i<sd.length;i+=4,j++){
-    const r=sd[i],g=sd[i+1],b=sd[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=.299*r+.587*g+.114*b,ss=(mx-mn)/Math.max(1,mx);
-    lumSmall[j]=l;satSmall[j]=ss;
-    if(l>150&&ss<.22)paper.push([r,g,b,l]);
-  }
+  // Analyse at moderate resolution; reconstruct a virtual clean sheet rather than blurring text.
+  const sw=512,sh=Math.max(320,Math.round(sw*H/W)),sm=document.createElement('canvas');sm.width=sw;sm.height=sh;
+  const sc=sm.getContext('2d',{willReadFrequently:true});sc.drawImage(canvas,0,0,sw,sh);const sd=sc.getImageData(0,0,sw,sh).data;
+  const field=buildPaperField(sd,sw,sh), {gw,gh,tile}=field;
 
-  // Robust white balance from the brightest neutral paper pixels.
-  paper.sort((a,b)=>b[3]-a[3]);const take=Math.max(40,Math.floor(paper.length*.14));let wr=0,wg=0,wb=0,n=0;
-  for(let i=0;i<Math.min(take,paper.length);i++){wr+=paper[i][0];wg+=paper[i][1];wb+=paper[i][2];n++}
-  if(!n){wr=wg=wb=235;n=1}else{wr/=n;wg/=n;wb/=n}
-  const neutral=(wr+wg+wb)/3;
-  const gr=whiteOn?Math.max(.84,Math.min(1.20,neutral/Math.max(1,wr))):1,
-        gg=whiteOn?Math.max(.84,Math.min(1.20,neutral/Math.max(1,wg))):1,
-        gb=whiteOn?Math.max(.84,Math.min(1.20,neutral/Math.max(1,wb))):1;
-
-  // Large + medium illumination fields. The large field removes overall shadow / vignetting;
-  // the medium field handles local phone / hand shadows without flattening text.
-  const bgLarge=shadowOn?boxBlurGray(lumSmall,sw,sh,Math.max(18,Math.round(sw*.075))):null;
-  const bgMed=shadowOn?boxBlurGray(lumSmall,sw,sh,Math.max(7,Math.round(sw*.026))):null;
-  const q10=percentile(lumSmall,.10),q90=percentile(lumSmall,.90),dynamic=Math.max(55,q90-q10);
-  const targetPaper=mode==='bw'?252:(mode==='ultra'?251:248);
-  const bgFine=(creaseOn||glareOn)?boxBlurGray(lumSmall,sw,sh,Math.max(3,Math.round(sw*.012))):null;
+  // Global neutral white balance from reconstructed paper field.
+  let wr=0,wg=0,wb=0,n=0;for(let i=0;i<field.y.length;i++){if(field.y[i]>175){wr+=field.r[i];wg+=field.g[i];wb+=field.b[i];n++}}
+  wr/=Math.max(1,n);wg/=Math.max(1,n);wb/=Math.max(1,n);const neutral=(wr+wg+wb)/3;
+  const gr=whiteOn?Math.max(.82,Math.min(1.22,neutral/Math.max(1,wr))):1,gg=whiteOn?Math.max(.82,Math.min(1.22,neutral/Math.max(1,wg))):1,gb=whiteOn?Math.max(.82,Math.min(1.22,neutral/Math.max(1,wb))):1;
+  const target=mode==='bw'?253:(mode==='ultra'?252:249);
 
   for(let y=0;y<H;y++){
-    const fy=y*(sh-1)/Math.max(1,H-1);
+    const sy=y*(sh-1)/Math.max(1,H-1), gy=sy/tile-.5;
     for(let x=0;x<W;x++){
-      const i=(y*W+x)*4,fx=x*(sw-1)/Math.max(1,W-1);
-      const or=d[i],og=d[i+1],ob=d[i+2],mx0=Math.max(or,og,ob),mn0=Math.min(or,og,ob),sat=(mx0-mn0)/Math.max(1,mx0);
-      let r=or*gr,g=og*gg,b=ob*gb,l=.299*r+.587*g+.114*b;
+      const i=(y*W+x)*4,sx=x*(sw-1)/Math.max(1,W-1),gx=sx/tile-.5;
+      const or=d[i],og=d[i+1],ob=d[i+2];let r=or*gr,g=og*gg,b=ob*gb;
+      const bgr=Math.max(70,sampleGrid(field.r,gw,gh,gx,gy)*gr),bgg=Math.max(70,sampleGrid(field.g,gw,gh,gx,gy)*gg),bgb=Math.max(70,sampleGrid(field.b,gw,gh,gx,gy)*gb),bgy=.299*bgr+.587*bgg+.114*bgb;
+      let l=.299*r+.587*g+.114*b,mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=(mx-mn)/Math.max(1,mx);
+      const ratio=l/Math.max(80,bgy), textness=Math.max(0,Math.min(1,(.94-ratio)/.46));
+      const preserveColor=stampOn&&sat>.11&&(mx-mn)>18&&ratio<.99;
 
-      // Illumination normalisation using a locally estimated paper background.
       if(shadowOn){
-        const bl=sampleBilinear(bgLarge,sw,sh,fx,fy),bm=sampleBilinear(bgMed,sw,sh,fx,fy);
-        let bg=.72*bl+.28*bm;
-        if(creaseOn&&bgFine){
-          const bf=sampleBilinear(bgFine,sw,sh,fx,fy);
-          // Suppress broad fold bands while leaving printed strokes intact.
-          const foldDelta=bf-bm;
-          if(Math.abs(foldDelta)>2.0 && l>125) bg += foldDelta*(.18+.28*s);
-        }
-        const desired=(mode==='ultra'?244:238)+9*s;
-        let gain=desired/Math.max(75,bg);
-        gain=Math.max(.72,Math.min(1.55,gain));
-        // Protect dark text from being lifted too aggressively.
-        const darkProtect=Math.max(0,Math.min(1,(l-55)/145));
-        gain=1+(gain-1)*(.58+.42*darkProtect);
-        r*=gain;g*=gain;b*=gain;l=.299*r+.587*g+.114*b;
+        // Divide by reconstructed paper illumination. This removes broad shadows / yellow cast
+        // while preserving foreground density as a ratio to its local paper background.
+        const power=.72+.25*s;
+        r=r*Math.pow(target/bgr,power);g=g*Math.pow(target/bgg,power);b=b*Math.pow(target/bgb,power);
+        l=.299*r+.587*g+.114*b;
       }
 
-      const chroma=mx0-mn0;
-      const preserveColor=stampOn&&sat>.105&&chroma>16&&l<244;
-      const neutralPixel=sat<.16;
-      if(glareOn && neutralPixel && l>218){
-        // Compress clipped / near-clipped highlights so glare boundaries become less visible.
-        const hi=Math.max(0,Math.min(1,(l-218)/37));
-        const local=bgMed?sampleBilinear(bgMed,sw,sh,fx,fy):l;
-        const tgt=Math.max(local, mode==='ultra'?247:244);
-        const nl=l+(tgt-l)*hi*(.28+.30*s), sca=nl/Math.max(1,l);
-        r*=sca;g*=sca;b*=sca;l=nl;
+      if(glareOn && ratio>1.02 && sat<.12){
+        // Flatten local specular peaks back toward the reconstructed paper plane.
+        const a=Math.min(.72,(ratio-1.02)*2.8)*(.45+.45*s);r=lerp(r,target,a);g=lerp(g,target,a);b=lerp(b,target,a);l=.299*r+.587*g+.114*b;
       }
 
       if(mode==='bw'){
-        // Adaptive threshold derived from local paper background; better under uneven lighting.
-        let localBg=shadowOn?sampleBilinear(bgMed,sw,sh,fx,fy):225;
-        let ratio=l/Math.max(90,localBg);
-        const t=.80-.07*s;
-        let yy;
-        if(ratio>t+.10)yy=255;
-        else if(ratio<t-.12)yy=0;
-        else yy=255*Math.max(0,Math.min(1,(ratio-(t-.12))/.22));
-        yy=yy<150?yy*(.72-.18*s):255-(255-yy)*(.28-.12*s);
-        r=g=b=yy;
+        const rr=l/Math.max(90,target),t=.81-.055*s;let yy;if(rr>t+.12)yy=255;else if(rr<t-.13)yy=0;else yy=255*Math.max(0,Math.min(1,(rr-(t-.13))/.25));
+        yy=yy<165?yy*(.72-.16*s):255-(255-yy)*(.20-.08*s);r=g=b=yy;
       }else if(mode==='gray'){
-        let yy=l;
-        // S-curve: clean paper, deepen text, preserve mid-tone antialiasing.
-        if(yy>176)yy=yy+(255-yy)*(.48+.32*s);
-        else if(yy<150)yy=yy*(.91-.13*s);
-        yy=(yy-128)*(1+.24*s)+128;
-        r=g=b=yy;
+        let yy=l;if(ratio>.83)yy=lerp(yy,252,Math.max(0,(ratio-.83)/.17)*(.50+.28*s));
+        if(textness>.08)yy*=1-(.08+.11*s)*Math.pow(textness,.72);yy=(yy-128)*(1+.18*s)+128;r=g=b=yy;
       }else{
-        // HD / Enhanced colour. Neutral paper gets stronger cleanup than coloured content.
-        let yy=l;
-        if(neutralPixel&&yy>168&&whiteOn){
-          const k=Math.max(0,Math.min(1,(yy-168)/72));
-          const lift=(.36+.42*s)*k;
-          const newY=yy+(targetPaper-yy)*lift;
-          const scale=newY/Math.max(1,yy);r*=scale;g*=scale;b*=scale;yy=newY;
-        }
-        // Deepen text without crushing antialiasing.
-        if(yy<168){
-          const textAmt=(168-yy)/168;
-          const dark=1-(.045+.12*s)*Math.pow(textAmt,.72);
-          r*=dark;g*=dark;b*=dark;
-        }
-        // Mild global contrast with highlight protection.
-        const c=1+.16*s;r=(r-128)*c+128;g=(g-128)*c+128;b=(b-128)*c+128;
-        if(preserveColor){
-          // Blend back original chroma so blue/red stamps and signatures remain natural.
-          const ol=.299*(or*gr)+.587*(og*gg)+.114*(ob*gb);
-          const nl=.299*r+.587*g+.114*b;
-          const rr=(or*gr)-ol,rg=(og*gg)-ol,rb=(ob*gb)-ol;
-          const chromaBoost=(mode==='hd'||mode==='ultra')?1.08:1.18;
-          r=nl+rr*chromaBoost;g=nl+rg*chromaBoost;b=nl+rb*chromaBoost;
-        }
+        // Reconstruct neutral paper separately from coloured ink. Background is aggressively
+        // cleaned only where the pixel is likely paper, not on text/lines/stamps.
+        l=.299*r+.587*g+.114*b;mx=Math.max(r,g,b);mn=Math.min(r,g,b);sat=(mx-mn)/Math.max(1,mx);
+        const paperProb=Math.max(0,Math.min(1,(ratio-.78)/.22))*Math.max(0,Math.min(1,(.24-sat)/.18));
+        if(whiteOn && paperProb>0){const a=paperProb*(.60+.34*s);r=lerp(r,target,a);g=lerp(g,target,a);b=lerp(b,target,a)}
+        // Foreground reconstruction: deepen text relative to its local background, preserving antialiasing.
+        if(textness>.03){const dark=1-(.055+.105*s)*Math.pow(textness,.74);r*=dark;g*=dark;b*=dark}
+        if(creaseOn && paperProb>.45){const a=paperProb*(.18+.24*s);r=lerp(r,target,a);g=lerp(g,target,a);b=lerp(b,target,a)}
+        // Keep stamp/signature chroma even after paper normalization.
+        if(preserveColor){const ol=.299*(or*gr)+.587*(og*gg)+.114*(ob*gb),nl=.299*r+.587*g+.114*b,boost=1.05+.12*s;r=nl+((or*gr)-ol)*boost;g=nl+((og*gg)-ol)*boost;b=nl+((ob*gb)-ol)*boost}
       }
       d[i]=clamp255(r);d[i+1]=clamp255(g);d[i+2]=clamp255(b);d[i+3]=255;
     }
   }
   ctx.putImageData(img,0,0);
 
-  // Final high-resolution unsharp mask. Canvas blur is hardware accelerated on Safari and
-  // gives much better small Chinese text than a simple contrast-only filter.
-  if(mode!=='bw'&&s>.05){
-    const blur=document.createElement('canvas');blur.width=W;blur.height=H;const bc=blur.getContext('2d');
-    bc.filter=`blur(${mode==='ultra'?0.82:(mode==='hd'?0.72:0.62)}px)`;bc.drawImage(canvas,0,0);bc.filter='none';
-    const base=ctx.getImageData(0,0,W,H),bd=base.data,bl=bc.getImageData(0,0,W,H).data;
-    const amount=(mode==='ultra'?.50:(mode==='hd'?.42:.30))*(.55+.75*s);
-    for(let i=0;i<bd.length;i+=4){
-      const l0=.299*bd[i]+.587*bd[i+1]+.114*bd[i+2],l1=.299*bl[i]+.587*bl[i+1]+.114*bl[i+2],edge=l0-l1;
-      // Threshold reduces sharpening of JPEG noise / paper texture.
-      const e=Math.abs(edge)<1.4?0:edge*amount;
-      bd[i]=clamp255(bd[i]+e);bd[i+1]=clamp255(bd[i+1]+e);bd[i+2]=clamp255(bd[i+2]+e);
-    }
+  // Edge-preserving two-scale sharpening: fine text receives more gain than broad paper texture.
+  if(mode!=='bw'&&s>.03){
+    const blur1=document.createElement('canvas'),blur2=document.createElement('canvas');blur1.width=blur2.width=W;blur1.height=blur2.height=H;
+    const c1=blur1.getContext('2d'),c2=blur2.getContext('2d');c1.filter='blur(.65px)';c1.drawImage(canvas,0,0);c1.filter='none';c2.filter='blur(1.8px)';c2.drawImage(canvas,0,0);c2.filter='none';
+    const base=ctx.getImageData(0,0,W,H),bd=base.data,a1=c1.getImageData(0,0,W,H).data,a2=c2.getImageData(0,0,W,H).data;
+    const fine=.34+.34*s,broad=.08+.12*s;
+    for(let i=0;i<bd.length;i+=4){const y0=.299*bd[i]+.587*bd[i+1]+.114*bd[i+2],y1=.299*a1[i]+.587*a1[i+1]+.114*a1[i+2],y2=.299*a2[i]+.587*a2[i+1]+.114*a2[i+2];let e1=y0-y1,e2=y1-y2;if(Math.abs(e1)<1.0)e1=0;if(Math.abs(e2)<2.3)e2=0;const e=e1*fine+e2*broad;bd[i]=clamp255(bd[i]+e);bd[i+1]=clamp255(bd[i+1]+e);bd[i+2]=clamp255(bd[i+2]+e)}
     ctx.putImageData(base,0,0);
   }
 }
