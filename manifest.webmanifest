@@ -1,0 +1,11 @@
+{
+  "name":"A4 離線文件掃描器",
+  "short_name":"A4掃描",
+  "start_url":"./index.html",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#f3f4f6",
+  "theme_color":"#111827",
+  "description":"完全本機處理的 A4 文件拍攝、透視校正、去陰影、白紙校正及多頁 PDF 掃描器",
+  "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

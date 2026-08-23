@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.webmanifest">
+<title>A4 離線文件掃描器 v3.1</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--text:#111827;--muted:#6b7280;--line:#d1d5db;--blue:#2563eb;--good:#047857;--warn:#b45309;--danger:#b91c1c}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang HK","Noto Sans TC",Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.95);backdrop-filter:blur(12px);border-bottom:1px solid #e5e7eb;padding:12px 14px}header h1{font-size:18px;margin:0}header p{font-size:12px;color:var(--muted);margin:3px 0 0}
+main{max-width:960px;margin:auto;padding:12px 12px 110px;display:grid;gap:12px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:13px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.grow{flex:1 1 220px}.btn{appearance:none;border:0;border-radius:12px;background:#111827;color:#fff;padding:11px 13px;font-size:14px;font-weight:700;cursor:pointer}.btn.secondary{background:#e5e7eb;color:#111827}.btn.outline{background:#fff;color:#111827;border:1px solid var(--line)}.btn.danger{background:#fee2e2;color:#991b1b}.btn:disabled{opacity:.45}
+.upload{display:grid;place-items:center;min-height:112px;border:2px dashed #cbd5e1;border-radius:14px;background:#f8fafc;text-align:center;padding:18px;cursor:pointer}.upload strong{font-size:16px}.upload span{font-size:12px;color:var(--muted);margin-top:5px}input[type=file]{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+.stageWrap{position:relative;background:#0f172a;border-radius:14px;overflow:hidden;min-height:220px;display:grid;place-items:center}.stageWrap canvas{display:block;max-width:100%;height:auto;touch-action:none}.corner{position:absolute;width:26px;height:26px;border-radius:50%;background:#fff;border:4px solid var(--blue);transform:translate(-50%,-50%);touch-action:none;display:none;box-shadow:0 1px 6px rgba(0,0,0,.28)}.corner:after{content:"";position:absolute;inset:-14px}
+.hint{font-size:12px;color:var(--muted);line-height:1.5}.status{font-size:12px;padding:8px 10px;border-radius:10px;background:#f3f4f6;color:#374151}.status.good{background:#ecfdf5;color:#065f46}.status.warn{background:#fffbeb;color:#92400e}
+.controls{display:grid;grid-template-columns:1fr;gap:10px}@media(min-width:720px){.controls{grid-template-columns:repeat(3,1fr)}}.control label{display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:5px}.control select,.control input[type=text],.control input[type=range]{width:100%}select,input[type=text]{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;font-size:14px}
+.switches{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}@media(min-width:680px){.switches{grid-template-columns:repeat(3,1fr)}}.switch{display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:11px;padding:9px 10px;font-size:13px}.switch input{width:18px;height:18px}
+.split{display:grid;grid-template-columns:1fr;gap:12px}@media(min-width:760px){.split{grid-template-columns:1fr 1fr}}.previewLabel{font-size:12px;font-weight:800;margin-bottom:7px}.resultFrame{background:#e5e7eb;border-radius:14px;padding:9px;display:grid;place-items:center;min-height:220px}.resultFrame canvas{max-width:100%;height:auto;background:#fff;box-shadow:0 2px 9px rgba(0,0,0,.16)}
+.pageList{display:grid;gap:8px}.pageItem{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center;border:1px solid #e5e7eb;border-radius:12px;padding:8px}.pageItem img{width:58px;height:82px;object-fit:cover;background:#eee;border:1px solid #ddd}.pageMeta{font-size:13px}.pageMeta small{display:block;color:var(--muted);margin-top:3px}.pageActions{display:flex;flex-direction:column;gap:5px}.mini{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 8px;font-size:12px}
+.badge{display:inline-block;border-radius:999px;background:#ecfdf5;color:#065f46;padding:3px 7px;font-size:11px;font-weight:700}.offlineNote{font-size:12px;color:#374151;line-height:1.5;background:#f8fafc;border-radius:10px;padding:9px;margin-top:9px}
+footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-top:1px solid #e5e7eb;padding:8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left))}.footerInner{max-width:960px;margin:auto;display:flex;gap:7px}.footerInner .btn{flex:1;padding:11px 8px;font-size:13px}
+</style>
+</head>
+<body>
+<header><h1>A4 離線文件掃描器 v3.2 <span class="badge">100% 本機處理</span></h1><p>自動找紙邊・透視校正・去陰影・白紙校正・保留印章簽名・多頁 PDF</p></header>
+<main>
+<section class="card">
+  <div class="upload" style="cursor:default">
+    <strong>加入文件相片</strong>
+    <span>iPhone 可直接拍照，亦可從「相片」相簿選取</span>
+    <div class="row" style="justify-content:center;margin-top:12px;width:100%">
+      <label class="btn" for="cameraInput" style="cursor:pointer">📷 拍攝文件</label>
+      <label class="btn secondary" for="albumInput" style="cursor:pointer">🖼️ 從相簿選擇</label>
+    </div>
+  </div>
+  <!-- iOS: capture=environment 只用於相機；相簿 input 刻意不設 capture，否則 Safari/PWA 可能只顯示相機 -->
+  <input id="cameraInput" type="file" accept="image/*" capture="environment">
+  <input id="albumInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*">
+  <div class="offlineNote">此版本沒有 CDN、沒有雲端 API、沒有雲端 OCR。若瀏覽器支援本機 TextDetector，可直接離線 OCR；iPhone 請使用同套件內的 Native iOS 版以使用 Apple Vision OCR。安裝成 PWA 並完成首次載入後，可完全斷網使用。</div>
+</section>
+
+<section class="card" id="editorCard" hidden>
+  <div class="row" style="margin-bottom:9px">
+    <button class="btn secondary" id="autoBtn">自動找紙邊</button><button class="btn outline" id="rotL">↶ 左轉</button><button class="btn outline" id="rotR">↷ 右轉</button><button class="btn outline" id="resetCorners">重設四角</button>
+  </div>
+  <div class="stageWrap" id="stageWrap"><canvas id="sourceCanvas"></canvas><div class="corner" data-i="0"></div><div class="corner" data-i="1"></div><div class="corner" data-i="2"></div><div class="corner" data-i="3"></div></div>
+  <p class="hint">藍點次序為左上、右上、右下、左下。自動偵測後如不準，可直接拖到紙張四角。</p>
+  <div id="detectStatus" class="status">等待文件</div>
+</section>
+
+<section class="card" id="settingsCard" hidden>
+  <div class="controls">
+    <div class="control"><label>處理模式</label><select id="mode"><option value="color">彩色清晰文件（推薦）</option><option value="gray">灰階文件</option><option value="bw">黑白掃描</option><option value="original">只校正，不增強</option></select></div>
+    <div class="control"><label>清晰化強度 <span id="strengthValue">65</span>%</label><input id="strength" type="range" min="0" max="100" value="65"></div>
+    <div class="control"><label>A4 輸出解像度</label><select id="resolution"><option value="150">150 dpi・1240×1754</option><option value="200">200 dpi・1654×2339</option><option value="300" selected>300 dpi・2480×3508</option></select></div>
+  </div>
+  <div class="switches">
+    <label class="switch"><input id="shadow" type="checkbox" checked> 自動去陰影 / 光暗差</label>
+    <label class="switch"><input id="white" type="checkbox" checked> 去黃 + 白紙校正</label>
+    <label class="switch"><input id="stamp" type="checkbox" checked> 保留彩色印章 / 簽名</label>
+  </div>
+  <div class="row" style="margin-top:10px"><button class="btn" id="processBtn">生成清晰 A4</button><span id="processStatus" class="status">等待處理</span></div>
+</section>
+
+<section class="card" id="resultCard" hidden>
+  <div class="split"><div><div class="previewLabel">處理前（已拉正）</div><div class="resultFrame"><canvas id="beforeCanvas"></canvas></div></div><div><div class="previewLabel">處理後（A4）</div><div class="resultFrame"><canvas id="resultCanvas"></canvas></div></div></div>
+  <div class="row" style="margin-top:10px"><button class="btn" id="addPageBtn">加入此頁到文件</button><button class="btn secondary" id="nextPageBtn">再掃一頁</button></div>
+</section>
+
+<section class="card" id="ocrCard">
+  <div class="previewLabel">離線 OCR / 文件辨識</div>
+  <div class="row"><button class="btn secondary" id="ocrBtn" disabled>執行本機 OCR</button><span id="ocrStatus" class="status">等待處理後頁面</span></div>
+  <div class="controls" style="margin-top:10px"><div class="control"><label>文件類別</label><select id="docType"><option>自動辨識</option><option>授權信</option><option>土地查冊</option><option>租約</option><option>AR2</option><option>REG-01</option><option>BHU-01</option><option>文件</option></select></div><div class="control"><label>辨識公司名稱</label><input id="ocrCompany" type="text" placeholder="OCR 自動提取"></div><div class="control"><label>辨識日期</label><input id="ocrDate" type="text" placeholder="YYYY-MM-DD"></div></div>
+  <textarea id="ocrText" style="width:100%;min-height:120px;margin-top:10px;border:1px solid #d1d5db;border-radius:10px;padding:10px" placeholder="OCR 文字會顯示在這裡；亦可人手修正。"></textarea>
+  <div class="offlineNote">文件分類支援：授權信、土地查冊、租約、AR2、REG-01、BHU-01。辨識後會自動更新檔名。</div>
+</section>
+
+<section class="card" id="pagesCard">
+  <div class="row"><div class="grow control"><label>自動檔案名稱（可修改）</label><input id="filename" type="text"></div><div><span id="pageCount" class="status">0 頁</span></div></div>
+  <div id="pageList" class="pageList" style="margin-top:10px"><div class="hint">加入處理後頁面，即可輸出多頁 PDF。</div></div>
+</section>
+</main>
+<footer><div class="footerInner"><button class="btn secondary" id="newBtn">拍新相片</button><button class="btn outline" id="albumBtn">相簿</button><button class="btn outline" id="jpgBtn" disabled>JPG</button><button class="btn" id="pdfBtn" disabled>多頁 PDF</button></div></footer>
+<script>
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const A4={150:[1240,1754],200:[1654,2339],300:[2480,3508]};
+const cameraInput=$('#cameraInput'), albumInput=$('#albumInput'), sourceCanvas=$('#sourceCanvas'), resultCanvas=$('#resultCanvas'), beforeCanvas=$('#beforeCanvas');
+const sctx=sourceCanvas.getContext('2d',{willReadFrequently:true}), rctx=resultCanvas.getContext('2d',{willReadFrequently:true}), bctx=beforeCanvas.getContext('2d');
+let imageBitmap=null, corners=[], rotation=0, currentBlob=null, currentThumb=null, pages=[];
+function pad(n){return String(n).padStart(2,'0')} function autoName(){const d=new Date();return `A4Scan_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`}
+$('#filename').value=autoName();
+function status(id,msg,cls=''){const e=$(id);e.textContent=msg;e.className='status '+cls}
+
+async function fileToImageElement(f){
+  return await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('無法讀取所選相片檔案'));
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>resolve(img);
+      img.onerror=()=>reject(new Error('Safari 無法解碼此相片格式；如為 HEIC/HEIF，請先在「相片」中分享/另存為 JPEG，或用相機重新拍攝。'));
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(f);
+  });
+}
+async function openImageFile(f){
+  if(!f)return;
+  status('#detectStatus','正在載入相片…');
+  try{
+    // iPhone Safari / PWA：優先用 FileReader + <img>，比 createImageBitmap 對相簿來源更穩定。
+    try{imageBitmap=await fileToImageElement(f)}
+    catch(firstErr){
+      try{imageBitmap=await createImageBitmap(f)}
+      catch(_){throw firstErr}
+    }
+    if(!imageBitmap || !(imageBitmap.naturalWidth||imageBitmap.width)) throw new Error('已選取相片，但未能取得影像尺寸');
+    rotation=0;drawSource();$('#editorCard').hidden=false;$('#settingsCard').hidden=false;$('#resultCard').hidden=true;currentBlob=null;$('#jpgBtn').disabled=true;$('#addPageBtn').disabled=false;$('#addPageBtn').textContent='加入此頁到文件';
+    status('#detectStatus',`相片已加入：${f.name||'iPhone 相片'} (${Math.round(f.size/1024)} KB)`,'good');
+    setTimeout(()=>{resetCorners();autoDetect()},120);
+    $('#editorCard').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(err){
+    console.error(err);
+    alert('已從相簿選取相片，但程式無法載入：'+err.message+'\n\n如使用 iCloud「最佳化 iPhone 儲存空間」，請先在「相片」App 打開該相片，等原檔下載完成後再試。');
+  }
+}
+async function handleFileInput(e){
+  const inp=e.currentTarget, f=inp.files&&inp.files[0];
+  if(!f)return;
+  await openImageFile(f);
+  // 延遲清空，避免 iOS 在 change callback 完成前把 File 失效。
+  setTimeout(()=>{inp.value=''},300);
+}
+cameraInput.addEventListener('change',handleFileInput);
+albumInput.addEventListener('change',handleFileInput);
+function drawSource(){if(!imageBitmap)return;const max=2400,w=imageBitmap.width,h=imageBitmap.height,swap=rotation%180!==0;let rw=swap?h:w,rh=swap?w:h,sc=Math.min(1,max/Math.max(rw,rh));rw=Math.round(rw*sc);rh=Math.round(rh*sc);sourceCanvas.width=rw;sourceCanvas.height=rh;sctx.save();sctx.clearRect(0,0,rw,rh);sctx.translate(rw/2,rh/2);sctx.rotate(rotation*Math.PI/180);sctx.drawImage(imageBitmap,-w*sc/2,-h*sc/2,w*sc,h*sc);sctx.restore();syncHandles()}
+function resetCorners(){const w=sourceCanvas.width,h=sourceCanvas.height,m=Math.round(Math.min(w,h)*.035);corners=[[m,m],[w-m,m],[w-m,h-m],[m,h-m]];syncHandles()}
+function canvasToWrap(x,y){const r=sourceCanvas.getBoundingClientRect(),wr=$('#stageWrap').getBoundingClientRect();return[r.left-wr.left+x*r.width/sourceCanvas.width,r.top-wr.top+y*r.height/sourceCanvas.height]}
+function syncHandles(){if(!corners.length)return;$$('.corner').forEach((el,i)=>{const[x,y]=canvasToWrap(...corners[i]);el.style.left=x+'px';el.style.top=y+'px';el.style.display='block'})}
+new ResizeObserver(syncHandles).observe($('#stageWrap'));
+$$('.corner').forEach(el=>{let active=false;const i=+el.dataset.i;el.addEventListener('pointerdown',e=>{active=true;el.setPointerCapture(e.pointerId)});el.addEventListener('pointermove',e=>{if(!active)return;const r=sourceCanvas.getBoundingClientRect();let x=(e.clientX-r.left)*sourceCanvas.width/r.width,y=(e.clientY-r.top)*sourceCanvas.height/r.height;x=Math.max(0,Math.min(sourceCanvas.width,x));y=Math.max(0,Math.min(sourceCanvas.height,y));corners[i]=[x,y];syncHandles()});el.addEventListener('pointerup',()=>active=false);el.addEventListener('pointercancel',()=>active=false)});
+$('#rotL').onclick=()=>{rotation=(rotation+270)%360;drawSource();resetCorners();setTimeout(autoDetect,30)};$('#rotR').onclick=()=>{rotation=(rotation+90)%360;drawSource();resetCorners();setTimeout(autoDetect,30)};$('#resetCorners').onclick=resetCorners;$('#autoBtn').onclick=autoDetect;$('#strength').oninput=e=>$('#strengthValue').textContent=e.target.value;
+
+// Offline paper-edge detector: Sobel gradients + constrained Hough-style line search.
+function autoDetect(){if(!sourceCanvas.width)return;status('#detectStatus','自動偵測紙邊中…');setTimeout(()=>{try{const max=520,sc=Math.min(1,max/Math.max(sourceCanvas.width,sourceCanvas.height)),w=Math.max(80,Math.round(sourceCanvas.width*sc)),h=Math.max(80,Math.round(sourceCanvas.height*sc));const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(sourceCanvas,0,0,w,h);const d=x.getImageData(0,0,w,h).data,g=new Float32Array(w*h);for(let i=0,j=0;i<d.length;i+=4,j++)g[j]=.299*d[i]+.587*d[i+1]+.114*d[i+2];const e=new Float32Array(w*h);for(let y=1;y<h-1;y++)for(let xx=1;xx<w-1;xx++){const i=y*w+xx,gx=-g[i-w-1]-2*g[i-1]-g[i+w-1]+g[i-w+1]+2*g[i+1]+g[i+w+1],gy=-g[i-w-1]-2*g[i-w]-g[i-w+1]+g[i+w-1]+2*g[i+w]+g[i+w+1];e[i]=Math.min(1024,Math.hypot(gx,gy))}
+function bestV(side){let best={s:-1,a:0,b:0};const slopes=31;for(let si=0;si<slopes;si++){const a=-.5+si/(slopes-1);const b0=side==='L'?0:w*.48,b1=side==='L'?w*.48:w;for(let b=b0;b<b1;b+=3){let s=0,n=0;for(let y=4;y<h-4;y+=2){const xx=Math.round(a*(y-h/2)+b);if(xx>2&&xx<w-3){s+=e[y*w+xx];n++}}s/=Math.max(1,n);const edgePenalty=(side==='L'?b/w:(w-b)/w)*1.5; s*=.85+edgePenalty;if(s>best.s)best={s,a,b}}}return best}
+function bestH(side){let best={s:-1,a:0,b:0};const slopes=31;for(let si=0;si<slopes;si++){const a=-.5+si/(slopes-1);const b0=side==='T'?0:h*.48,b1=side==='T'?h*.48:h;for(let b=b0;b<b1;b+=3){let s=0,n=0;for(let xx=4;xx<w-4;xx+=2){const y=Math.round(a*(xx-w/2)+b);if(y>2&&y<h-3){s+=e[y*w+xx];n++}}s/=Math.max(1,n);const edgePenalty=(side==='T'?b/h:(h-b)/h)*1.5;s*=.85+edgePenalty;if(s>best.s)best={s,a,b}}}return best}
+const L=bestV('L'),R=bestV('R'),T=bestH('T'),B=bestH('B');function intersect(v,hh){const den=1-v.a*hh.a;if(Math.abs(den)<.08)return[v.b,hh.b];const xx=(v.a*(hh.b-h/2)+v.b-v.a*hh.a*(-w/2))/den;const y=hh.a*(xx-w/2)+hh.b;return[xx,y]}
+let q=[intersect(L,T),intersect(R,T),intersect(R,B),intersect(L,B)].map(p=>[p[0]/sc,p[1]/sc]);const valid=q.every(p=>isFinite(p[0])&&isFinite(p[1])&&p[0]>=-sourceCanvas.width*.1&&p[0]<=sourceCanvas.width*1.1&&p[1]>=-sourceCanvas.height*.1&&p[1]<=sourceCanvas.height*1.1);if(valid){q=q.map(p=>[Math.max(0,Math.min(sourceCanvas.width,p[0])),Math.max(0,Math.min(sourceCanvas.height,p[1]))]);corners=q;syncHandles();status('#detectStatus','已自動偵測四角；如有偏差可拖動藍點微調','good')}else{status('#detectStatus','未能可靠偵測，請手動調整四個藍點','warn')}}catch(err){console.error(err);status('#detectStatus','自動偵測失敗，請手動調整','warn')}},20)}
+
+function squareToQuad(q,sw,sh){const x0=q[0][0],y0=q[0][1],x1=q[1][0],y1=q[1][1],x2=q[2][0],y2=q[2][1],x3=q[3][0],y3=q[3][1];const dx1=x1-x2,dx2=x3-x2,dy1=y1-y2,dy2=y3-y2,sx=x0-x1+x2-x3,sy=y0-y1+y2-y3,den=dx1*dy2-dx2*dy1;let g=0,h=0;if(Math.abs(den)>1e-9){g=(sx*dy2-dx2*sy)/den;h=(dx1*sy-sx*dy1)/den}return{a:x1-x0+g*x1,b:x3-x0+h*x3,c:x0,d:y1-y0+g*y1,e:y3-y0+h*y3,f:y0,g,h,sw,sh}}
+function perspectiveWarp(src,outW,outH,q){const out=document.createElement('canvas');out.width=outW;out.height=outH;const gl=out.getContext('webgl',{preserveDrawingBuffer:true,alpha:false});if(!gl)throw new Error('此瀏覽器不支援 WebGL 文件校正');const vs=`attribute vec2 p;varying vec2 v;void main(){v=(p+1.0)*0.5;gl_Position=vec4(p,0,1);}`;const fs=`precision highp float;varying vec2 v;uniform sampler2D t;uniform vec3 hx,hy,hw;uniform vec2 sz;void main(){vec3 z=vec3(v.x,1.0-v.y,1.0);float w=dot(hw,z);vec2 uv=vec2(dot(hx,z)/w/sz.x,dot(hy,z)/w/sz.y);gl_FragColor=texture2D(t,vec2(uv.x,1.0-uv.y));}`;function sh(type,s){const o=gl.createShader(type);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o}const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);const loc=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src);const H=squareToQuad(q,src.width,src.height);gl.uniform3f(gl.getUniformLocation(pr,'hx'),H.a,H.b,H.c);gl.uniform3f(gl.getUniformLocation(pr,'hy'),H.d,H.e,H.f);gl.uniform3f(gl.getUniformLocation(pr,'hw'),H.g,H.h,1);gl.uniform2f(gl.getUniformLocation(pr,'sz'),src.width,src.height);gl.viewport(0,0,outW,outH);gl.drawArrays(gl.TRIANGLES,0,6);return out}
+function boxBlurGray(a,w,h,r){let tmp=new Float32Array(a.length),out=new Float32Array(a.length);for(let y=0;y<h;y++){let sum=0;for(let x=-r;x<=r;x++)sum+=a[y*w+Math.max(0,Math.min(w-1,x))];for(let x=0;x<w;x++){tmp[y*w+x]=sum/(2*r+1);sum+=a[y*w+Math.min(w-1,x+r+1)]-a[y*w+Math.max(0,x-r)]}}for(let x=0;x<w;x++){let sum=0;for(let y=-r;y<=r;y++)sum+=tmp[Math.max(0,Math.min(h-1,y))*w+x];for(let y=0;y<h;y++){out[y*w+x]=sum/(2*r+1);sum+=tmp[Math.min(h-1,y+r+1)*w+x]-tmp[Math.max(0,y-r)*w+x]}}return out}
+function enhanceCanvas(canvas,mode,strength,shadowOn,whiteOn,stampOn){if(mode==='original')return;const ctx=canvas.getContext('2d',{willReadFrequently:true}),img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data;const sw=320,sh=Math.max(200,Math.round(sw*canvas.height/canvas.width)),sm=document.createElement('canvas');sm.width=sw;sm.height=sh;const sc=sm.getContext('2d',{willReadFrequently:true});sc.drawImage(canvas,0,0,sw,sh);const sd=sc.getImageData(0,0,sw,sh).data,gray=new Float32Array(sw*sh);let whites=[];for(let i=0,j=0;i<sd.length;i+=4,j++){const r=sd[i],g=sd[i+1],b=sd[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);gray[j]=.299*r+.587*g+.114*b;if(gray[j]>190&&mx-mn<55)whites.push([r,g,b,gray[j]])}whites.sort((a,b)=>b[3]-a[3]);const take=Math.max(10,Math.floor(whites.length*.18));let wr=0,wg=0,wb=0;for(let i=0;i<Math.min(take,whites.length);i++){wr+=whites[i][0];wg+=whites[i][1];wb+=whites[i][2]}const n=Math.max(1,Math.min(take,whites.length));wr/=n;wg/=n;wb/=n;const target=Math.max(wr,wg,wb,235),gr=whiteOn?Math.min(1.22,target/Math.max(1,wr)):1,gg=whiteOn?Math.min(1.22,target/Math.max(1,wg)):1,gb=whiteOn?Math.min(1.22,target/Math.max(1,wb)):1,bg=shadowOn?boxBlurGray(gray,sw,sh,18):null;const W=canvas.width,H=canvas.height,s=strength/100;for(let y=0;y<H;y++){const sy=Math.min(sh-1,Math.floor(y*sh/H));for(let x=0;x<W;x++){const i=(y*W+x)*4,si=sy*sw+Math.min(sw-1,Math.floor(x*sw/W));const or=d[i],og=d[i+1],ob=d[i+2],mx0=Math.max(or,og,ob),mn0=Math.min(or,og,ob),sat=(mx0-mn0)/Math.max(1,mx0);let r=or*gr,g=og*gg,b=ob*gb;if(bg){const local=bg[si],gain=Math.max(.78,Math.min(1.38,238/Math.max(70,local)));r*=gain;g*=gain;b*=gain}let lum=.299*r+.587*g+.114*b;const keepColor=stampOn&&sat>.16&&(mx0-mn0)>24&&lum<245;if(mode==='gray'||mode==='bw'){if(mode==='gray'){let yy=lum;yy=(yy-128)*(1+.28*s)+128;yy=yy>220?yy+(255-yy)*(.35+.25*s):yy*(1-.05*s);r=g=b=yy}else{const t=170+25*s;const yy=lum>t?255:Math.max(0,lum*(.42-.12*s));r=g=b=yy}}else{const c=1+.35*s;r=(r-128)*c+128;g=(g-128)*c+128;b=(b-128)*c+128;lum=.299*r+.587*g+.114*b;if(lum>205){const lift=(lum-205)/50*(.45+.3*s);r+= (255-r)*lift;g+=(255-g)*lift;b+=(255-b)*lift}else if(lum<145){const dark=.05+.12*s;r*=1-dark;g*=1-dark;b*=1-dark}if(keepColor){const blend=.72;r=r*(1-blend)+or*gr*blend;g=g*(1-blend)+og*gg*blend;b=b*(1-blend)+ob*gb*blend}}d[i]=Math.max(0,Math.min(255,r));d[i+1]=Math.max(0,Math.min(255,g));d[i+2]=Math.max(0,Math.min(255,b));d[i+3]=255}}ctx.putImageData(img,0,0)}
+
+$('#processBtn').onclick=async()=>{if(!sourceCanvas.width)return;status('#processStatus','處理中…');await new Promise(r=>setTimeout(r,30));try{const dpi=+$('#resolution').value,[W,H]=A4[dpi],q=corners.map(p=>[p[0],p[1]]),warped=perspectiveWarp(sourceCanvas,W,H,q);resultCanvas.width=W;resultCanvas.height=H;rctx.drawImage(warped,0,0);enhanceCanvas(resultCanvas,$('#mode').value,+$('#strength').value,$('#shadow').checked,$('#white').checked,$('#stamp').checked);beforeCanvas.width=620;beforeCanvas.height=877;bctx.drawImage(warped,0,0,620,877);currentBlob=await canvasBlob(resultCanvas,'image/jpeg',.94);currentThumb=resultCanvas.toDataURL('image/jpeg',.55);$('#resultCard').hidden=false;$('#jpgBtn').disabled=false;$('#ocrBtn').disabled=false;status('#processStatus','完成','good');$('#resultCard').scrollIntoView({behavior:'smooth',block:'start'})}catch(err){console.error(err);status('#processStatus','處理失敗','warn');alert(err.message)}};
+function canvasBlob(c,type,q){return new Promise(res=>c.toBlob(res,type,q))}function downloadBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)}
+$('#jpgBtn').onclick=()=>{if(currentBlob)downloadBlob(currentBlob,safeName($('#filename').value)+'.jpg')};function safeName(s){return(s||autoName()).replace(/[\\/:*?"<>|]+/g,'_').trim()||autoName()}
+$('#addPageBtn').onclick=()=>{if(!currentBlob)return;pages.push({blob:currentBlob,thumb:currentThumb,w:resultCanvas.width,h:resultCanvas.height});renderPages();$('#addPageBtn').disabled=true;$('#addPageBtn').textContent='已加入此頁'};
+$('#nextPageBtn').onclick=()=>{if(currentBlob&&!$('#addPageBtn').disabled)$('#addPageBtn').click();albumInput.value='';albumInput.click()};$('#newBtn').onclick=()=>{cameraInput.value='';cameraInput.click()};
+$('#albumBtn').onclick=()=>{albumInput.value='';albumInput.click()};
+function renderPages(){const box=$('#pageList');box.innerHTML='';pages.forEach((p,i)=>{const e=document.createElement('div');e.className='pageItem';e.innerHTML=`<img src="${p.thumb}"><div class="pageMeta">第 ${i+1} 頁<small>${p.w} × ${p.h}px</small></div><div class="pageActions"><button class="mini" data-up="${i}">↑</button><button class="mini" data-down="${i}">↓</button><button class="mini" data-del="${i}">刪除</button></div>`;box.appendChild(e)});if(!pages.length)box.innerHTML='<div class="hint">加入處理後頁面，即可輸出多頁 PDF。</div>';$('#pageCount').textContent=pages.length+' 頁';$('#pdfBtn').disabled=!(pages.length||currentBlob);box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{pages.splice(+b.dataset.del,1);renderPages()});box.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const i=+b.dataset.up;if(i>0){[pages[i-1],pages[i]]=[pages[i],pages[i-1]];renderPages()}});box.querySelectorAll('[data-down]').forEach(b=>b.onclick=()=>{const i=+b.dataset.down;if(i<pages.length-1){[pages[i+1],pages[i]]=[pages[i],pages[i+1]];renderPages()}})}
+async function blobBytes(blob){return new Uint8Array(await blob.arrayBuffer())}function ascii(s){return new TextEncoder().encode(s)}function concat(arr){let n=0;arr.forEach(a=>n+=a.length);const o=new Uint8Array(n);let p=0;arr.forEach(a=>{o.set(a,p);p+=a.length});return o}
+async function makePdf(items){const blobs=[];for(const p of items)blobs.push(await blobBytes(p.blob));const parts=[ascii('%PDF-1.4\n%OfflineA4\n')],offset=[0],objs=[];function obj(n,chunks){offset[n]=parts.reduce((s,a)=>s+a.length,0);parts.push(ascii(`${n} 0 obj\n`),...chunks,ascii('\nendobj\n'))}const pageNums=items.map((_,i)=>3+i*3),imgNums=items.map((_,i)=>4+i*3),contentNums=items.map((_,i)=>5+i*3),maxObj=2+items.length*3;obj(1,[ascii('<< /Type /Catalog /Pages 2 0 R >>')]);obj(2,[ascii(`<< /Type /Pages /Count ${items.length} /Kids [${pageNums.map(n=>n+' 0 R').join(' ')}] >>`)]);for(let i=0;i<items.length;i++){const pn=pageNums[i],im=imgNums[i],cn=contentNums[i],jpg=blobs[i],p=items[i];obj(pn,[ascii(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im${i} ${im} 0 R >> >> /Contents ${cn} 0 R >>`)]);obj(im,[ascii(`<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`),jpg,ascii('\nendstream')]);const stream=`q\n595.28 0 0 841.89 0 0 cm\n/Im${i} Do\nQ\n`;obj(cn,[ascii(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`)])}const xrefPos=parts.reduce((s,a)=>s+a.length,0);parts.push(ascii(`xref\n0 ${maxObj+1}\n0000000000 65535 f \n`));for(let i=1;i<=maxObj;i++)parts.push(ascii(String(offset[i]||0).padStart(10,'0')+' 00000 n \n'));parts.push(ascii(`trailer\n<< /Size ${maxObj+1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`));return new Blob([concat(parts)],{type:'application/pdf'})}
+$('#pdfBtn').onclick=async()=>{try{let items=pages.slice();if(!items.length&&currentBlob)items=[{blob:currentBlob,w:resultCanvas.width,h:resultCanvas.height}];if(!items.length)return;status('#pageCount','建立 PDF…');const pdf=await makePdf(items);downloadBlob(pdf,safeName($('#filename').value)+'.pdf');status('#pageCount',items.length+' 頁','good')}catch(err){alert('PDF 建立失敗：'+err.message)}};
+
+function classifyText(text){const u=text.toUpperCase();let type='文件';if(/REG[- ]?01/.test(u))type='REG-01';else if(/BHU[- ]?01/.test(u))type='BHU-01';else if(/\bAR\s*2\b/.test(u))type='AR2';else if(text.includes('授權信')||text.includes('書面同意')||/AUTHORI[ZS]ATION/.test(u))type='授權信';else if(text.includes('土地登記冊')||text.includes('查冊')||u.includes('LAND REGISTER')||u.includes('LAND SEARCH'))type='土地查冊';else if(text.includes('租約')||u.includes('TENANCY')||u.includes('LEASE AGREEMENT'))type='租約';return type}
+function extractMeta(text){let company='';let m=text.match(/公司名稱\s*[:：]?\s*([^\n]{2,40}(?:有限公司|LIMITED))/i)||text.match(/([^\n]{2,35}有限公司)/)||text.match(/([A-Z][A-Z0-9 &.,'()\-]{2,60} LIMITED)/i);if(m)company=(m[1]||m[0]).trim();let date='';m=text.match(/\b(20\d{2})[-\/.](\d{1,2})[-\/.](\d{1,2})\b/);if(m)date=`${m[1]}-${pad(m[2])}-${pad(m[3])}`;else{m=text.match(/\b(\d{1,2})[-\/.](\d{1,2})[-\/.](20\d{2})\b/);if(m)date=`${m[3]}-${pad(m[2])}-${pad(m[1])}`}return{company,date}}
+function updateAutoFilename(){const text=$('#ocrText').value||'';let type=$('#docType').value;if(type==='自動辨識')type=classifyText(text);const meta=extractMeta(text),company=($('#ocrCompany').value||meta.company||'').trim(),date=($('#ocrDate').value||meta.date||new Date().toISOString().slice(0,10)).trim();$('#ocrCompany').value=company;$('#ocrDate').value=date;$('#filename').value=safeName(`${type}${company?'_'+company:''}_${date}`)}
+$('#ocrText').addEventListener('input',updateAutoFilename);$('#docType').addEventListener('change',updateAutoFilename);$('#ocrCompany').addEventListener('input',updateAutoFilename);$('#ocrDate').addEventListener('input',updateAutoFilename);
+$('#ocrBtn').onclick=async()=>{if(!currentBlob)return;if(!('TextDetector'in window)){status('#ocrStatus','此瀏覽器沒有本機 OCR API；iPhone 請用 Native iOS 版','warn');return}try{status('#ocrStatus','本機 OCR 中…');const det=new TextDetector();const bitmap=await createImageBitmap(currentBlob);const blocks=await det.detect(bitmap);const text=blocks.map(b=>b.rawValue||'').join('\n');$('#ocrText').value=text;const type=classifyText(text);$('#docType').value=type;const meta=extractMeta(text);$('#ocrCompany').value=meta.company;$('#ocrDate').value=meta.date;updateAutoFilename();status('#ocrStatus',`完成：${type}`,'good')}catch(e){status('#ocrStatus','OCR 失敗','warn')}};
+
+if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body></html>
