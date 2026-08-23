@@ -196,7 +196,7 @@ function enhanceCanvas(canvas,mode,strength,shadowOn,whiteOn,stampOn,creaseOn,gl
   let wr=0,wg=0,wb=0,n=0;for(let i=0;i<field.y.length;i++){if(field.y[i]>175){wr+=field.r[i];wg+=field.g[i];wb+=field.b[i];n++}}
   wr/=Math.max(1,n);wg/=Math.max(1,n);wb/=Math.max(1,n);const neutral=(wr+wg+wb)/3;
   const gr=whiteOn?Math.max(.82,Math.min(1.22,neutral/Math.max(1,wr))):1,gg=whiteOn?Math.max(.82,Math.min(1.22,neutral/Math.max(1,wg))):1,gb=whiteOn?Math.max(.82,Math.min(1.22,neutral/Math.max(1,wb))):1;
-  const target=mode==='bw'?253:(mode==='ultra'?252:249);
+  const target=mode==='bw'?254:(mode==='ultra'?254:252);
 
   for(let y=0;y<H;y++){
     const sy=y*(sh-1)/Math.max(1,H-1), gy=sy/tile-.5;
@@ -206,7 +206,7 @@ function enhanceCanvas(canvas,mode,strength,shadowOn,whiteOn,stampOn,creaseOn,gl
       const bgr=Math.max(70,sampleGrid(field.r,gw,gh,gx,gy)*gr),bgg=Math.max(70,sampleGrid(field.g,gw,gh,gx,gy)*gg),bgb=Math.max(70,sampleGrid(field.b,gw,gh,gx,gy)*gb),bgy=.299*bgr+.587*bgg+.114*bgb;
       let l=.299*r+.587*g+.114*b,mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=(mx-mn)/Math.max(1,mx);
       const ratio=l/Math.max(80,bgy), textness=Math.max(0,Math.min(1,(.94-ratio)/.46));
-      const preserveColor=stampOn&&sat>.11&&(mx-mn)>18&&ratio<.99;
+      const preserveColor=stampOn&&sat>.14&&(mx-mn)>22&&(textness>.10||ratio<.90); // avoid treating yellow paper as coloured ink
 
       if(shadowOn){
         // Divide by reconstructed paper illumination. This removes broad shadows / yellow cast
@@ -231,8 +231,29 @@ function enhanceCanvas(canvas,mode,strength,shadowOn,whiteOn,stampOn,creaseOn,gl
         // Reconstruct neutral paper separately from coloured ink. Background is aggressively
         // cleaned only where the pixel is likely paper, not on text/lines/stamps.
         l=.299*r+.587*g+.114*b;mx=Math.max(r,g,b);mn=Math.min(r,g,b);sat=(mx-mn)/Math.max(1,mx);
-        const paperProb=Math.max(0,Math.min(1,(ratio-.78)/.22))*Math.max(0,Math.min(1,(.24-sat)/.18));
-        if(whiteOn && paperProb>0){const a=paperProb*(.60+.34*s);r=lerp(r,target,a);g=lerp(g,target,a);b=lerp(b,target,a)}
+        const paperProb=Math.max(0,Math.min(1,(ratio-.76)/.24))*Math.max(0,Math.min(1,(.34-sat)/.28));
+        if(whiteOn && paperProb>0){
+          // v5.1 anti-yellow paper reconstruction. First remove residual warm cast, then
+          // drive only confident paper pixels toward a neutral white point.
+          const warm=Math.max(0,((r+g)*.5)-b);
+          const cool=Math.max(0,b-((r+g)*.5));
+          const chroma=Math.max(r,g,b)-Math.min(r,g,b);
+          const neutralY=.299*r+.587*g+.114*b;
+          const deYellow=Math.min(1,warm/42)*paperProb*(.72+.24*s);
+          if(deYellow>0){
+            r=lerp(r,neutralY,deYellow*.78);
+            g=lerp(g,neutralY,deYellow*.58);
+            b=lerp(b,neutralY,deYellow);
+          }
+          // Very bright low-detail paper is allowed to become almost pure white.
+          const cleanBoost=(ratio>.90?1:.78);
+          const a=Math.min(.985,paperProb*(.78+.20*s)*cleanBoost);
+          r=lerp(r,target,a);g=lerp(g,target,a);b=lerp(b,target,a);
+          // Final channel neutralisation removes beige/cream remnants without touching text/ink.
+          const nl=.299*r+.587*g+.114*b;
+          const nA=paperProb*Math.max(0,Math.min(1,(nl-170)/70))*(.30+.38*s);
+          r=lerp(r,nl,nA);g=lerp(g,nl,nA);b=lerp(b,nl,nA);
+        }
         // Foreground reconstruction: deepen text relative to its local background, preserving antialiasing.
         if(textness>.03){const dark=1-(.055+.105*s)*Math.pow(textness,.74);r*=dark;g*=dark;b*=dark}
         if(creaseOn && paperProb>.45){const a=paperProb*(.18+.24*s);r=lerp(r,target,a);g=lerp(g,target,a);b=lerp(b,target,a)}
