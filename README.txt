@@ -36,3 +36,6 @@ index.html 已包含全部程式邏輯，不需要外部 JS。桌面瀏覽器可
 - 自動找紙邊是本機演算法，背景與紙張顏色太接近時仍可能需要手動拉四角。
 - 300 dpi 多頁文件會使用較多記憶體；舊手機如一次處理大量頁面，建議改用 200 dpi。
 - 本版不做 OCR，所以「自動檔名」以日期/時間產生，不會從文件文字判斷公司名或文件類別。
+
+
+v4.1 adds Ultra HD mode, fold/crease attenuation, glare/backlight suppression, stronger local illumination correction and text sharpening.
